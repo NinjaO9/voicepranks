@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import sys
+import json
 import traceback
 import tkinter as tk
 from tkinter import ttk
@@ -88,11 +89,6 @@ _PRESET_NONE = "None"
 
 # Display strings for the active laugh, keyed by the engine's `active_laugh`
 # token. Built once here rather than per status-poll tick.
-_LAUGH_LABELS = {
-    "goofy": "goofy laugh active",
-    "scooby": "scooby laugh active",
-    "custom": "your recorded laugh active",
-}
 
 
 class VoicePranksApp:
@@ -234,18 +230,19 @@ class VoicePranksApp:
             side="left", padx=(0, 4)
         )
 
-        ttk.Button(
-            lframe, text="Goofy laugh", command=lambda: self._on_select_laugh("goofy")
-        ).pack(side="left", padx=4)
+        laugh_config = {}
+        
+        with open(presets_mod._LAUGH_CONFIG_PATH, "r") as laugh_config_file:
+            laugh_config = json.load(laugh_config_file)
 
-        ttk.Button(
-            lframe, text="Scooby laugh", command=lambda: self._on_select_laugh("scooby")
-        ).pack(side="left", padx=4)
+        for laugh in laugh_config:
+            ttk.Button(
+                lframe, text=laugh, command=lambda laugh=laugh: self._on_select_laugh(laugh)
+            ).pack(side="left", padx=4)
 
         self.laugh_record_button = ttk.Button(
             lframe, text="Record laugh", command=self._on_record_laugh
         )
-
         self.laugh_record_button.pack(side="left", padx=(12, 4))
 
         ttk.Button(lframe, text="Stop & use", command=self._on_record_laugh_stop).pack(
@@ -841,7 +838,7 @@ class VoicePranksApp:
         # laugh is currently being captured.
         laugh_recording = bool(status.get("laugh_recording"))
         active_laugh = status.get("active_laugh", "goofy")
-        label = _LAUGH_LABELS.get(active_laugh, f"{active_laugh} laugh active")
+        label = f"{active_laugh} activated"
         self.laugh_source_label.config(text=label)
         self.laugh_record_button.config(
             text="Recording laugh…" if laugh_recording else "Record laugh"

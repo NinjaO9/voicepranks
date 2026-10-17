@@ -19,6 +19,18 @@ from __future__ import annotations
 from typing import Dict, List
 
 from .params import PARAM_SPECS_BY_NAME
+from . import resources
+
+_ASSETS_DIR = resources.resource_path("assets")
+
+_PRESET_LAUGHS = {
+    "goofy": _ASSETS_DIR / "goofy_laugh.wav",
+    "scooby": _ASSETS_DIR / "scooby_laugh.wav",
+    "spooky": _ASSETS_DIR / "spooky_laugh.wav"
+}
+
+_SAMPLE_LAUGH = _PRESET_LAUGHS["goofy"]
+_LAUGH_CONFIG_PATH = _ASSETS_DIR / "laugh_config.json"
 
 # Params a preset is never allowed to set: environment/session state, not
 # voice character.

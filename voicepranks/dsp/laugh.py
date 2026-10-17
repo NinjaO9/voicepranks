@@ -37,9 +37,11 @@ import wave
 from pathlib import Path
 
 import numpy as np
+import json
+import os
 
+from .. import presets
 from ..audio import wavio
-from ..resources import resource_path
 from ..settings import SETTINGS_DIR
 from .biquad import PeakingEQ
 
@@ -50,18 +52,14 @@ _FORMANTS = ((650.0, 4.0, 10.0), (1100.0, 5.0, 9.0), (2600.0, 6.0, 7.0))
 # Bundled stock laugh clips. Resolved via `resource_path` so they're found both
 # from source and inside a PyInstaller build (a `__file__`-relative path misses
 # them in the packaged macOS .app -- see resources.py).
-_ASSETS_DIR = resource_path("assets")
-_SAMPLE_PATH = _ASSETS_DIR / "goofy_laugh.wav"
+
 
 # Selectable pre-recorded laughs, by name. "goofy" is the built-in stock clip
 # (`_SAMPLE_PATH`); the others are alternates the user can switch to. Switching
 # presets is a live, in-memory choice (see `select_laugh`) -- it never touches
 # the persisted recording slot, so picking a preset can't clobber a laugh the
 # user recorded.
-_PRESET_LAUGHS = {
-    "goofy": _SAMPLE_PATH,
-    "scooby": _ASSETS_DIR / "scooby_laugh.wav",
-}
+
 
 # User-recorded laugh clip. Lives in the shared user config dir (`settings.
 # SETTINGS_DIR`, i.e. `~/.voicepranks/`) so it survives restarts and stays
@@ -151,7 +149,7 @@ class GoofyLaugh:
                 self.active_laugh = "custom"
                 return custom
         self.active_laugh = "goofy"
-        return _load_sample(_SAMPLE_PATH, self.sample_rate)
+        return _load_sample(presets._SAMPLE_LAUGH_PATH, self.sample_rate)
 
     # -- configuration ---------------------------------------------------
 
@@ -190,13 +188,20 @@ class GoofyLaugh:
         preset can't destroy a laugh the user recorded. The choice lasts for the
         session; on the next start a saved recording (if any) is restored,
         otherwise the stock clip."""
-        if name not in _PRESET_LAUGHS:
+        laugh_config = {}
+        
+        with open(presets._LAUGH_CONFIG_PATH, "r") as laugh_config_file:
+            laugh_config = json.load(laugh_config_file)
+
+        if name not in laugh_config:
             raise ValueError(f"unknown laugh preset {name!r}")
         if name == self.active_laugh:
             return  # already live -- skip the redundant clip reload
-        sample = _load_sample(_PRESET_LAUGHS[name], self.sample_rate)
-        if (sample is None or sample.size == 0) and name != "goofy":
+
+        sample = _load_sample(presets._ASSETS_DIR / laugh_config[name], self.sample_rate)
+        if (sample is None or sample.size == 0):
             raise ValueError(f"laugh preset {name!r} could not be loaded")
+
         # For "goofy" a missing stock asset is tolerated: _sample=None falls
         # back to the synth giggle, matching reset_to_stock.
         self._sample = sample
@@ -212,7 +217,7 @@ class GoofyLaugh:
             self._custom_path.unlink()
         except OSError:
             pass
-        self._sample = _load_sample(_SAMPLE_PATH, self.sample_rate)
+        self._sample = _load_sample(presets._SAMPLE_LAUGH_PATH, self.sample_rate)
         self.active_laugh = "goofy"
 
     def reset(self) -> None:
