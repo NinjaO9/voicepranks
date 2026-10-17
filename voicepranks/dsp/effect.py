@@ -37,6 +37,7 @@ from .minionese import Minionese
 from .minionese_shuffle import MinioneseShuffle
 from .pitch import PitchShifter
 from .reverb import Reverb
+from .reaction import ReactionSound
 
 def _scale_from_neutral(neutral: float, target: float, t: float) -> float:
     """Interpolate a stage amount from its `neutral` value (at intensity 0) to
@@ -98,11 +99,13 @@ class MinionEffect:
         self.deep_fry = DeepFry(sample_rate)
         self.reverb = Reverb(sample_rate)
         self.laugh = GoofyLaugh(sample_rate)
+        self.reaction = ReactionSound(sample_rate)
         self.growl_enabled = False
         self.distortion_enabled = False
         self.deep_fry_enabled = False
         self.reverb_enabled = False
         self.laugh_enabled = False
+        self.reaction_enabled = False
         self.growl_depth = self.growl.depth          # target at intensity 1
         self.distortion_drive = self.distortion.drive  # target at intensity 1
         self.deep_fry_drive = self.deep_fry.drive
@@ -236,6 +239,12 @@ class MinionEffect:
     def set_laugh_gain(self, gain: float) -> None:
         self.laugh.set_gain(float(gain))
 
+    def set_reaction_enabled(self, b: bool) -> None:
+        self.reaction_enabled = bool(b)
+
+    def set_reaction_sensitivity(self, value: float) -> None:
+        self.reaction.set_sensitivity(float(value))
+
     def save_custom_laugh(self, mono) -> None:
         """Install a recording as the goofy-laugh clip (see GoofyLaugh.save_custom)."""
         self.laugh.save_custom(mono)
@@ -251,6 +260,10 @@ class MinionEffect:
     def laugh_clip(self):
         """One laugh waveform for on-demand playback (see GoofyLaugh.laugh_clip)."""
         return self.laugh.laugh_clip()
+
+    def reaction_clip(self) -> np.ndarray:
+        """Clip from the most recent reaction, used for the monitor-off echo."""
+        return self.reaction.clip
 
     @property
     def active_laugh(self) -> str:
@@ -276,8 +289,16 @@ class MinionEffect:
         self.deep_fry.reset()
         self.reverb.reset()
         self.laugh.reset()
+        self.reaction.reset()
 
     def process(self, mono: np.ndarray) -> np.ndarray:
+        # Observe the dry microphone, so voice effects cannot hide or create a
+        # reaction. The selected clip is already loaded; an absent asset simply
+        # means the reaction does not fire rather than doing synthesis here.
+        if self.reaction_enabled:
+            sample = self.laugh.loaded_clip
+            if sample is not None:
+                self.reaction.observe(mono, sample)
         if self.gibberish:
             out = self._gibberish_engine().process(mono)
         else:
@@ -301,6 +322,8 @@ class MinionEffect:
         # (plain or gibberish), controlled by its own toggle, not by presets.
         if self.laugh_enabled:
             out = self.laugh.process(out)
+        if self.reaction_enabled:
+            out = self.reaction.mix(out)
         # Safety brick-wall: EQ boost + reverb wet + distortion can sum past
         # full scale; clamp so the output stays in range instead of the audio
         # device hard-clipping arbitrary out-of-range samples. Transparent

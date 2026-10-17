@@ -196,6 +196,7 @@ class VoiceEngine:
         # poll (`poll_pending_laugh_echo`) watches the laugh's monotonic fire
         # counter against this last-seen value to detect a fire and echo it.
         self._last_laugh_fire_count = self.effect.laugh.fire_count
+        self._last_reaction_fire_count = self.effect.reaction.fire_count
 
         # -- random preset bursts -----------------------------------------
         # config sutff for random preset bursts
@@ -325,6 +326,7 @@ class VoiceEngine:
             # last-seen value so the counter reset doesn't read as a "new laugh"
             # and fire a spurious headphone echo on the next poll.
             self._last_laugh_fire_count = self.effect.laugh.fire_count
+            self._last_reaction_fire_count = self.effect.reaction.fire_count
 
         # Devices/blocksize/ring_ms don't change effect identity, but
         # rebuilding the registry unconditionally is cheap and keeps every
@@ -664,6 +666,7 @@ class VoiceEngine:
             "laugh_recording": self._laugh_recording,
             "custom_laugh": self.effect.custom_laugh,
             "active_laugh": self.effect.active_laugh,
+            "reaction_fires": self.effect.reaction.fire_count,
             "take_seconds": self._current_take_seconds(),
             "has_live_take": self._live_take is not None and self._live_take.size > 0,
             "has_raw_take": self._raw_take is not None and self._raw_take.size > 0,
@@ -864,6 +867,19 @@ class VoiceEngine:
         self._last_laugh_fire_count = fc
         if not self.monitor_enabled:
             self._play_to_headphones(self.effect.laugh_clip())
+
+    def poll_pending_reaction_echo(self) -> None:
+        """Echo a reaction sound locally when the live monitor is off.
+
+        As with automatic laughs, this is invoked by the UI thread so the
+        callback never opens a playback stream or calls ``sd.play``.
+        """
+        fc = self.effect.reaction.fire_count
+        if fc == self._last_reaction_fire_count:
+            return
+        self._last_reaction_fire_count = fc
+        if not self.monitor_enabled:
+            self._play_to_headphones(self.effect.reaction_clip())
 
     def save(self, path: str, which: str = "live") -> None:
         buf = self._get_take(which)
