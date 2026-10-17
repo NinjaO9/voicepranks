@@ -1,2 +1,3 @@
 numpy
 sounddevice
+Pillow>=9.1

@@ -39,6 +39,7 @@ binaries = collect_dynamic_libs("_sounddevice_data")
 #     be listed here or its picker button can't switch to it in a packaged build.
 datas = [
     ("voicepranks/webui/index.html", "voicepranks/webui"),
+    ("voicepranks/assets/fnaf-foxy-jumpscare.gif", "voicepranks/assets"),
     # Includes goofy_laugh.wav and scooby_laugh.wav plus user-added effects.
     ("voicepranks/assets/*.wav", "voicepranks/assets"),
 ]

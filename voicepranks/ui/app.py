@@ -23,7 +23,7 @@ from .. import settings as settings_mod
 from ..audio.devices import list_input_devices, list_output_devices
 from ..audio.engine import VoiceEngine
 from ..control_server import ControlServer
-from ..jumpscare_assets import copy_sound, copy_visual, stored_path, validate_sound, validate_visual, visual_path
+from ..jumpscare_assets import copy_sound, copy_visual, sound_path, validate_sound, validate_visual, visual_path
 from ..params import PARAM_SPECS, PARAM_SPECS_BY_NAME, ParamSpec
 from .jumpscare import FullscreenJumpscare
 
@@ -293,7 +293,7 @@ class VoicePranksApp:
 
     def _jumpscare_asset_text(self) -> str:
         visual = self.settings.get("jumpscare_visual") or "built-in Foxy GIF"
-        sound = self.settings.get("jumpscare_sound")
+        sound = self.settings.get("jumpscare_sound") or "built-in FNAF sound"
         return f"visual: {visual or 'not set'}; sound: {sound or 'not set'}"
 
     def _choose_jumpscare_visual(self) -> None:
@@ -908,21 +908,24 @@ class VoicePranksApp:
             return
         self._last_jumpscare_fires = fire_count
         visual_asset_path = visual_path(self.settings.get("jumpscare_visual"))
-        sound_path = stored_path(self.settings.get("jumpscare_sound"))
-        if not visual_asset_path.exists() or sound_path is None or not sound_path.exists():
-            self.error_message = "Jumpscare skipped: choose a 16-bit PCM WAV sound first."
+        sound_asset_path = sound_path(self.settings.get("jumpscare_sound"))
+        if not visual_asset_path.exists() or not sound_asset_path.exists():
+            self.error_message = "Jumpscare skipped: the built-in or selected visual/sound asset is missing."
             return
         try:
             validate_visual(visual_asset_path)
-            sample_rate, clip = validate_sound(sound_path)
+            sample_rate, clip = validate_sound(sound_asset_path)
             if self._active_jumpscare is not None:
                 self._active_jumpscare.dismiss()
             scare = FullscreenJumpscare(
-                self.root, visual_asset_path, len(clip) / sample_rate, self._dismiss_jumpscare
+                self.root,
+                visual_asset_path,
+                len(clip) / sample_rate,
+                self._dismiss_jumpscare,
+                on_present=lambda: self.engine.play_local_clip(clip, sample_rate),
             )
             self._active_jumpscare = scare
             scare.show()
-            self.engine.play_local_clip(clip, sample_rate)
             self.error_message = None
         except Exception as exc:
             self.error_message = f"Jumpscare skipped: {exc}"

@@ -75,3 +75,11 @@ def visual_path(filename: object) -> Path:
     if saved is not None and saved.exists():
         return saved
     return resource_path("assets", "fnaf-foxy-jumpscare.gif")
+
+
+def sound_path(filename: object) -> Path:
+    """Use a saved replacement when present, otherwise the bundled default."""
+    saved = stored_path(filename)
+    if saved is not None and saved.exists():
+        return saved
+    return resource_path("assets", "Fnaf_Jumpscare_Sound_Effect.wav")

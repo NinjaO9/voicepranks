@@ -840,8 +840,21 @@ class VoiceEngine:
         sd.play(buf, self.sample_rate if sample_rate is None else int(sample_rate), device=self.playback_device)
 
     def play_local_clip(self, clip: np.ndarray, sample_rate: int) -> None:
-        """Play a user-owned clip locally; never routes it into the mic/takes."""
-        self._play_to_headphones(np.asarray(clip, dtype=np.float32), sample_rate)
+        """Play a user-owned clip locally; never routes it into the mic/takes.
+
+        Resampling to the active engine rate means the local playback stream
+        uses a rate that has already opened successfully for this device.
+        """
+        buf = np.asarray(clip, dtype=np.float32)
+        if int(sample_rate) != self.sample_rate and buf.size > 1:
+            count = int(round(buf.size / int(sample_rate) * self.sample_rate))
+            if count > 1:
+                positions = np.linspace(0.0, buf.size - 1, count)
+                left = positions.astype(np.int64)
+                right = np.minimum(left + 1, buf.size - 1)
+                fraction = positions - left
+                buf = (buf[left] * (1.0 - fraction) + buf[right] * fraction).astype(np.float32)
+        self._play_to_headphones(buf)
 
     def _queue_output_overlay(self, clip: np.ndarray) -> None:
         """Queue `clip` to be mixed onto the outgoing (virtual-cable) signal by

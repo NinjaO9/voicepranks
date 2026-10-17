@@ -52,7 +52,7 @@ PARAM_SPECS = [
     # Desktop-only visual/audio scare. The timer is owned by the engine so
     # the localhost API can configure it too; only the Tk app presents it.
     ParamSpec("jumpscare.enabled", "jumpscare", "Enable fullscreen jumpscare", "bool", 0, 1, 1, False),
-    ParamSpec("jumpscare.interval_s", "jumpscare", "Jumpscare every N seconds", "float", 1.0, 86400.0, 1.0, 60.0),
+    ParamSpec("jumpscare.interval_s", "jumpscare", "Jumpscare every N seconds", "float", 1.0, 100.0, 1.0, 60.0),
 
 
     # Random sound bursts
