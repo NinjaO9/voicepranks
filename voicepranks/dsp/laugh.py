@@ -188,17 +188,17 @@ class GoofyLaugh:
         preset can't destroy a laugh the user recorded. The choice lasts for the
         session; on the next start a saved recording (if any) is restored,
         otherwise the stock clip."""
-        laugh_config = {}
+        sounds_config = {}
         
-        with open(presets._LAUGH_CONFIG_PATH, "r") as laugh_config_file:
-            laugh_config = json.load(laugh_config_file)
+        with open(presets._SOUNDS_CONFIG_PATH, "r") as sounds_config_file:
+            sounds_config = json.load(sounds_config_file)
 
-        if name not in laugh_config["standard_laughs"]:
+        if name not in sounds_config[presets._LISTED_SOUNDS_KEY]:
             raise ValueError(f"unknown laugh preset {name!r}")
         if name == self.active_laugh:
             return  # already live -- skip the redundant clip reload
 
-        sample = _load_sample(presets._ASSETS_DIR / laugh_config["standard_laughs"][name], self.sample_rate)
+        sample = _load_sample(presets._ASSETS_DIR / sounds_config[presets._LISTED_SOUNDS_KEY][name], self.sample_rate)
         if (sample is None or sample.size == 0):
             raise ValueError(f"laugh preset {name!r} could not be loaded")
 
@@ -217,7 +217,13 @@ class GoofyLaugh:
             self._custom_path.unlink()
         except OSError:
             pass
-        self._sample = _load_sample(presets._SAMPLE_LAUGH_PATH, self.sample_rate)
+
+        sounds_config = {}
+        
+        with open(presets._SOUNDS_CONFIG_PATH, "r") as sounds_config_file:
+            sounds_config = json.load(sounds_config_file)
+        
+        self._sample = _load_sample(sounds_config[presets._LISTED_SOUNDS_KEY], self.sample_rate)
         self.active_laugh = "goofy"
 
     def reset(self) -> None:

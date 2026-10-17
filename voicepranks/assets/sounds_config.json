@@ -1,12 +1,9 @@
 {
-    "standard_laughs":
+    "sample_sound": "goofy_laugh.wav",
+    "listed_sounds":
     {
         "Goofy Laugh": "goofy_laugh.wav",
         "Scooby Laugh": "scooby_laugh.wav",
         "Spooky Laugh": "spooky_laugh.wav"
-    },
-    "random_laughs":
-    {
-        
     }
 }
