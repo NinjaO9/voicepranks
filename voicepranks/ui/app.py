@@ -15,7 +15,7 @@ import os
 import sys
 import traceback
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 from typing import Dict, List, Optional, Tuple
 
 from .. import presets as presets_mod
@@ -23,7 +23,9 @@ from .. import settings as settings_mod
 from ..audio.devices import list_input_devices, list_output_devices
 from ..audio.engine import VoiceEngine
 from ..control_server import ControlServer
+from ..jumpscare_assets import copy_sound, copy_visual, stored_path, validate_sound, validate_visual, visual_path
 from ..params import PARAM_SPECS, PARAM_SPECS_BY_NAME, ParamSpec
+from .jumpscare import FullscreenJumpscare
 
 STATUS_REFRESH_MS = 250
 SAVE_DEBOUNCE_MS = 400
@@ -61,13 +63,14 @@ GROUP_LABELS = {
     "reverb": "Reverb",
     "laugh": "Random laugh",
     "reaction": "Reaction sounds",
+    "jumpscare": "Fullscreen jumpscare",
     "minionese": "Minionese — formant engine",
     "shuffle": "Minionese — shuffle engine",
     "pitch": "Pitch engine (advanced)",
     "io": "I/O (restarts audio)",
 }
 GROUP_ORDER = [
-    "global", "random_burst", "effect", "growl", "distortion", "deep_fry", "reverb", "laugh", "reaction",
+    "global", "random_burst", "effect", "growl", "distortion", "deep_fry", "reverb", "laugh", "reaction", "jumpscare",
     "minionese", "shuffle", "pitch", "io",
 ]
 
@@ -108,6 +111,8 @@ class VoicePranksApp:
         self._param_widgets: Dict[str, dict] = {}
         self._suppress_commands = False
         self._save_after_id: Optional[str] = None
+        self._last_jumpscare_fires = 0
+        self._active_jumpscare: Optional[FullscreenJumpscare] = None
 
         self.control_server: Optional[ControlServer] = None
         # `VOICEPRANKS_NO_SERVER` is the current name; `MINION_NO_SERVER` is the
@@ -145,7 +150,7 @@ class VoicePranksApp:
         frame.grid(row=0, column=0, sticky="nsew")
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)
-        frame.rowconfigure(6, weight=1)
+        frame.rowconfigure(8, weight=1)
         frame.columnconfigure(0, weight=1)
 
         # -- top bar: Turn On | Settings… | Preset dropdown ------------------
@@ -168,14 +173,15 @@ class VoicePranksApp:
         self._build_output_volume_row(frame, row=3)
         self._build_playback_volume_row(frame, row=4)
         self._build_custom_laugh_row(frame, row=5)
+        self._build_jumpscare_assets_row(frame, row=6)
 
         ttk.Label(frame, text="Parameters (click a section to expand)").grid(
-            row=6, column=0, sticky="w", pady=(6, 0)
+            row=7, column=0, sticky="w", pady=(6, 0)
         )
 
         # -- scrollable area of collapsible param sections -------------------
         scroll_container = ttk.Frame(frame)
-        scroll_container.grid(row=7, column=0, sticky="nsew", pady=(2, 8))
+        scroll_container.grid(row=8, column=0, sticky="nsew", pady=(2, 8))
         scroll_container.rowconfigure(0, weight=1)
         scroll_container.columnconfigure(0, weight=1)
 
@@ -195,7 +201,7 @@ class VoicePranksApp:
         self._build_param_controls(self._param_grid)
 
         self.status_label = ttk.Label(frame, text="", justify="left")
-        self.status_label.grid(row=8, column=0, sticky="w", pady=(4, 0))
+        self.status_label.grid(row=9, column=0, sticky="w", pady=(4, 0))
 
     def _build_recorder_row(self, frame: ttk.Frame, row: int) -> None:
         rec_frame = ttk.Frame(frame)
@@ -256,6 +262,44 @@ class VoicePranksApp:
         # Which clip is live, kept fresh by the status poll.
         self.laugh_source_label = ttk.Label(lframe, text="")
         self.laugh_source_label.pack(side="left", padx=(10, 0))
+
+    def _build_jumpscare_assets_row(self, frame: ttk.Frame, row: int) -> None:
+        assets = ttk.Frame(frame)
+        assets.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        ttk.Label(assets, text="Jumpscare assets:").pack(side="left", padx=(0, 6))
+        ttk.Button(assets, text="Choose PNG/GIF", command=self._choose_jumpscare_visual).pack(side="left", padx=4)
+        ttk.Button(assets, text="Choose WAV", command=self._choose_jumpscare_sound).pack(side="left", padx=4)
+        self.jumpscare_assets_label = ttk.Label(assets, text=self._jumpscare_asset_text())
+        self.jumpscare_assets_label.pack(side="left", padx=(8, 0))
+
+    def _jumpscare_asset_text(self) -> str:
+        visual = self.settings.get("jumpscare_visual") or "built-in Foxy GIF"
+        sound = self.settings.get("jumpscare_sound")
+        return f"visual: {visual or 'not set'}; sound: {sound or 'not set'}"
+
+    def _choose_jumpscare_visual(self) -> None:
+        path = filedialog.askopenfilename(filetypes=[("Images", "*.png *.gif")])
+        if not path:
+            return
+        try:
+            self.settings["jumpscare_visual"] = copy_visual(path)
+            self.jumpscare_assets_label.config(text=self._jumpscare_asset_text())
+            self._save_settings()
+            self.error_message = None
+        except Exception as exc:
+            self.error_message = f"Jumpscare visual must be a PNG or GIF: {exc}"
+
+    def _choose_jumpscare_sound(self) -> None:
+        path = filedialog.askopenfilename(filetypes=[("16-bit PCM WAV", "*.wav")])
+        if not path:
+            return
+        try:
+            self.settings["jumpscare_sound"] = copy_sound(path)
+            self.jumpscare_assets_label.config(text=self._jumpscare_asset_text())
+            self._save_settings()
+            self.error_message = None
+        except Exception as exc:
+            self.error_message = str(exc)
 
     def _build_ramp_row(self, frame: ttk.Frame, row: int) -> None:
         # Intensity ramp-in duration as hours/minutes/seconds text boxes,
@@ -797,6 +841,34 @@ class VoicePranksApp:
 
     # -- status polling ------------------------------------------------
 
+    def _dismiss_jumpscare(self) -> None:
+        self._active_jumpscare = None
+
+    def _show_pending_jumpscare(self, fire_count: int) -> None:
+        """Present one scheduled scare from the Tk thread, never the callback."""
+        if fire_count == self._last_jumpscare_fires:
+            return
+        self._last_jumpscare_fires = fire_count
+        visual_asset_path = visual_path(self.settings.get("jumpscare_visual"))
+        sound_path = stored_path(self.settings.get("jumpscare_sound"))
+        if not visual_asset_path.exists() or sound_path is None or not sound_path.exists():
+            self.error_message = "Jumpscare skipped: choose a 16-bit PCM WAV sound first."
+            return
+        try:
+            validate_visual(visual_asset_path)
+            sample_rate, clip = validate_sound(sound_path)
+            if self._active_jumpscare is not None:
+                self._active_jumpscare.dismiss()
+            scare = FullscreenJumpscare(
+                self.root, visual_asset_path, len(clip) / sample_rate, self._dismiss_jumpscare
+            )
+            self._active_jumpscare = scare
+            scare.show()
+            self.engine.play_local_clip(clip, sample_rate)
+            self.error_message = None
+        except Exception as exc:
+            self.error_message = f"Jumpscare skipped: {exc}"
+
     def _refresh_status(self) -> None:
         # Echo a just-fired automatic laugh to the headphones (monitor-off case).
         # Runs on this main-thread poll -- `sd.play` must not run on the audio
@@ -804,6 +876,7 @@ class VoicePranksApp:
         try:
             self.engine.poll_pending_laugh_echo()
             self.engine.poll_pending_reaction_echo()
+            self._show_pending_jumpscare(self.engine.get_status().get("jumpscare_fires", 0))
         except Exception as exc:
             self.error_message = f"Sound-effect echo failed: {exc}"
 
@@ -872,6 +945,8 @@ class VoicePranksApp:
 
     def _on_close(self) -> None:
         try:
+            if self._active_jumpscare is not None:
+                self._active_jumpscare.dismiss()
             if self._save_after_id is not None:
                 self.root.after_cancel(self._save_after_id)
                 self._save_after_id = None

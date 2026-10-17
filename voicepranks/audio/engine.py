@@ -134,6 +134,14 @@ class VoiceEngine:
         self.running = False
         self.last_error: Optional[str] = None
 
+        # The callback owns this fixed-sample scheduler.  It never performs UI
+        # or playback work; the desktop app notices `jumpscare_fires` in its
+        # normal status poll and handles those slow operations on its thread.
+        self.jumpscare_enabled = False
+        self.jumpscare_interval_s = 60.0
+        self._jumpscare_samples_left = self.jumpscare_interval_s * self.sample_rate
+        self._jumpscare_fires = 0
+
         # -- live monitor: a second output stream to an audible device
         # (speakers/headphones) so the user can HEAR the processed effect in
         # real time while the main output feeds the virtual cable. Fed the
@@ -354,6 +362,7 @@ class VoiceEngine:
         # A restart may follow an effect rebuild (io.sample_rate); force the
         # first callback to re-apply intensity rather than trust the cache.
         self._last_applied_intensity = None
+        self._reset_jumpscare_countdown()
 
         out_info = sd.query_devices(output_device)
         out_channels = max(1, int(out_info.get("max_output_channels", 1)))
@@ -380,9 +389,12 @@ class VoiceEngine:
         # for the shuffle gibberish engine, whose latency grows with the
         # scramble amount (a full shuffle window can be ~1s).
         self._prime_for_effect()
+        # Mark running before starting input: PortAudio may invoke the input
+        # callback immediately from `start()`, and the jumpscare scheduler's
+        # first interval begins with that first live block.
+        self.running = True
         self.input_stream.start()
         self.output_stream.start()
-        self.running = True
         if self.monitor_enabled:
             self._open_monitor_stream()
 
@@ -397,6 +409,7 @@ class VoiceEngine:
             self.output_stream.close()
             self.output_stream = None
         self.running = False
+        self._reset_jumpscare_countdown()
         # Drop any in-flight Play-Laugh overlay so a clip queued just before a
         # stop (e.g. a device change) can't resurface and burst onto the cable
         # at the next start().
@@ -426,6 +439,29 @@ class VoiceEngine:
         if self.running and self.monitor_enabled:
             self._close_monitor_stream()
             self._open_monitor_stream()
+
+    # -- fullscreen jumpscare scheduler ---------------------------------
+
+    def _reset_jumpscare_countdown(self) -> None:
+        self._jumpscare_samples_left = self.jumpscare_interval_s * self.sample_rate
+
+    def set_jumpscare_enabled(self, enabled: bool) -> None:
+        self.jumpscare_enabled = bool(enabled)
+        self._reset_jumpscare_countdown()
+
+    def set_jumpscare_interval_s(self, interval_s: float) -> None:
+        self.jumpscare_interval_s = max(0.001, float(interval_s))
+        self._reset_jumpscare_countdown()
+
+    def _advance_jumpscare(self, frames: int) -> None:
+        """Advance only from the input callback while streams are running."""
+        if not self.running or not self.jumpscare_enabled or frames <= 0:
+            return
+        self._jumpscare_samples_left -= frames
+        interval_samples = self.jumpscare_interval_s * self.sample_rate
+        while self._jumpscare_samples_left <= 0:
+            self._jumpscare_fires += 1
+            self._jumpscare_samples_left += interval_samples
 
     def _open_monitor_stream(self) -> None:
         if self.monitor_stream is not None:
@@ -667,6 +703,7 @@ class VoiceEngine:
             "custom_laugh": self.effect.custom_laugh,
             "active_laugh": self.effect.active_laugh,
             "reaction_fires": self.effect.reaction.fire_count,
+            "jumpscare_fires": self._jumpscare_fires,
             "take_seconds": self._current_take_seconds(),
             "has_live_take": self._live_take is not None and self._live_take.size > 0,
             "has_raw_take": self._raw_take is not None and self._raw_take.size > 0,
@@ -791,14 +828,18 @@ class VoiceEngine:
             raise RuntimeError(f"no {which} take available")
         return buf
 
-    def _play_to_headphones(self, clip: np.ndarray) -> None:
+    def _play_to_headphones(self, clip: np.ndarray, sample_rate: Optional[int] = None) -> None:
         """Play `clip` to the listening device (speakers/headphones) at the
         current playback level. Shared by Play, Play Laugh, and the automatic-
         laugh echo so the Playback-volume knob governs all three."""
         buf = clip
         if self.playback_gain != 1.0:
             buf = np.asarray(clip, dtype=np.float32) * np.float32(self.playback_gain)
-        sd.play(buf, self.sample_rate, device=self.playback_device)
+        sd.play(buf, self.sample_rate if sample_rate is None else int(sample_rate), device=self.playback_device)
+
+    def play_local_clip(self, clip: np.ndarray, sample_rate: int) -> None:
+        """Play a user-owned clip locally; never routes it into the mic/takes."""
+        self._play_to_headphones(np.asarray(clip, dtype=np.float32), sample_rate)
 
     def _queue_output_overlay(self, clip: np.ndarray) -> None:
         """Queue `clip` to be mixed onto the outgoing (virtual-cable) signal by
@@ -903,6 +944,7 @@ class VoiceEngine:
     def _input_callback(self, indata, frames, time_info, status) -> None:  # noqa: D401
         try:
             self._drain_pending()
+            self._advance_jumpscare(frames)
 
             mono = indata[:, 0] if indata.ndim > 1 else indata
             mono = np.asarray(mono, dtype=np.float32)

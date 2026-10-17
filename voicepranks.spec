@@ -41,6 +41,7 @@ datas = [
     ("voicepranks/webui/index.html", "voicepranks/webui"),
     ("voicepranks/assets/goofy_laugh.wav", "voicepranks/assets"),
     ("voicepranks/assets/scooby_laugh.wav", "voicepranks/assets"),
+    ("voicepranks/assets/fnaf-foxy-jumpscare.gif", "voicepranks/assets"),
 ]
 
 a = Analysis(
