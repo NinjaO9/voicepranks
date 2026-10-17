@@ -1,6 +1,7 @@
 """Real-time voice engine: mic capture -> MinionEffect -> virtual output."""
 from __future__ import annotations
 
+import random
 import threading
 from typing import List, Optional, Tuple
 
@@ -196,6 +197,19 @@ class VoiceEngine:
         # counter against this last-seen value to detect a fire and echo it.
         self._last_laugh_fire_count = self.effect.laugh.fire_count
 
+        # -- random preset bursts -----------------------------------------
+        # config sutff for random preset bursts
+        self.random_burst_enabled = False
+        self.random_burst_interval_min_s = 10.0
+        self.random_burst_interval_max_s = 30.0
+        self.random_burst_duration_min_s = 2.0
+        self.random_burst_duration_max_s = 5.0
+        self.random_burst_presets = {name: True for name in presets_mod.preset_names()}
+        self._random = random.Random()
+        self._random_burst_samples_left: Optional[int] = None
+        self._random_burst_restore: Optional[dict] = None
+        self._random_burst_name: Optional[str] = None
+
     # -- param registry (shared by Tkinter UI + HTTP control server) -----
 
     def set_param(self, name: str, value) -> None:
@@ -268,6 +282,9 @@ class VoiceEngine:
             except Exception as exc:  # keep the audio thread alive
                 self.last_error = str(exc)
                 continue
+            if self._random_burst_restore is not None and name in self._random_burst_restore:
+                # Adjustment saves to end of audio. Because person might do a goof and modify stuff while playing
+                self._random_burst_restore[name] = value
             # Params that rebuild a DSP stage (`needs_reset`) or switch the
             # gibberish engine can change the active path's buffering latency
             # -- notably the shuffle window. Re-prime the output cushion so a
@@ -468,6 +485,79 @@ class VoiceEngine:
             self.ramp.stop()
             self.effect.set_intensity(0.0)
 
+    def set_random_burst_enabled(self, enabled: bool) -> None:
+        self.random_burst_enabled = bool(enabled)
+        if not self.random_burst_enabled:
+            self._stop_random_burst()
+        elif self._random_burst_samples_left is None:
+            self._schedule_random_burst_wait()
+
+    def set_random_burst_interval_min_s(self, seconds: float) -> None:
+        self.random_burst_interval_min_s = max(0.0, float(seconds))
+
+    def set_random_burst_interval_max_s(self, seconds: float) -> None:
+        self.random_burst_interval_max_s = max(0.0, float(seconds))
+
+    def set_random_burst_duration_min_s(self, seconds: float) -> None:
+        self.random_burst_duration_min_s = max(0.1, float(seconds))
+
+    def set_random_burst_duration_max_s(self, seconds: float) -> None:
+        self.random_burst_duration_max_s = max(0.1, float(seconds))
+
+    def set_random_burst_preset(self, name: str, selected: bool) -> None:
+        if name not in self.random_burst_presets:
+            raise KeyError(f"unknown random-burst preset: {name}")
+        self.random_burst_presets[name] = bool(selected)
+
+    def _random_seconds_to_samples(self, low: float, high: float) -> int:
+        seconds = self._random.uniform(min(low, high), max(low, high))
+        return max(1, int(round(seconds * self.sample_rate)))
+
+    def _schedule_random_burst_wait(self) -> None:
+        self._random_burst_samples_left = self._random_seconds_to_samples(
+            self.random_burst_interval_min_s, self.random_burst_interval_max_s
+        )
+
+    def _start_random_burst(self) -> None:
+        choices = [name for name, selected in self.random_burst_presets.items() if selected]
+        if not choices:
+            self._schedule_random_burst_wait()
+            return
+        name = self._random.choice(choices)
+        values = presets_mod.get_preset(name)
+        self._random_burst_restore = {key: self._registry[key].get() for key in values}
+        for key, value in values.items():
+            self._registry[key].set(value)
+        self._random_burst_name = name
+        self._random_burst_samples_left = self._random_seconds_to_samples(
+            self.random_burst_duration_min_s, self.random_burst_duration_max_s
+        )
+        self._prime_for_effect()
+
+    def _stop_random_burst(self) -> None:
+        if self._random_burst_restore is not None:
+            for key, value in self._random_burst_restore.items():
+                self._registry[key].set(value)
+            self._prime_for_effect()
+        self._random_burst_restore = None
+        self._random_burst_name = None
+        self._random_burst_samples_left = None
+
+    def _advance_random_burst(self, frames: int) -> bool:
+        """Advance the callback-owned scheduler; return whether a burst is on."""
+        if not self.random_burst_enabled:
+            return False
+        if self._random_burst_samples_left is None:
+            self._schedule_random_burst_wait()
+        self._random_burst_samples_left -= frames
+        if self._random_burst_samples_left <= 0:
+            if self._random_burst_restore is None:
+                self._start_random_burst()
+            else:
+                self._stop_random_burst()
+                self._schedule_random_burst_wait()
+        return self._random_burst_restore is not None
+
     def set_manual_intensity(self, t: float) -> None:
         """Override the auto-ramp with a fixed intensity (e.g. slider drag)."""
         self._manual_intensity = min(max(float(t), 0.0), 1.0)
@@ -564,6 +654,8 @@ class VoiceEngine:
             "overruns": self.ring.overruns,
             "running": self.running,
             "enabled": self.enabled,
+            "random_burst_active": self._random_burst_restore is not None,
+            "random_burst_preset": self._random_burst_name,
             "gibberish": self.effect.gibberish,
             "monitor": self.monitor_enabled,
             "latency_ms": round(self.effect.latency_ms(), 1),
@@ -801,8 +893,11 @@ class VoiceEngine:
 
             self._dry_rms, self._dry_peak = self._rms_peak(mono)
 
-            if self.enabled:
+            random_burst_active = self._advance_random_burst(frames)
+            if self.enabled or random_burst_active:
                 t = self._manual_intensity if self._manual_intensity is not None else self.ramp.current()
+                if random_burst_active and not self.enabled:
+                    t = 1.0
                 if t != self._last_applied_intensity:
                     self.effect.set_intensity(t)
                     self._last_applied_intensity = t

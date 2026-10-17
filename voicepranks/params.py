@@ -49,6 +49,18 @@ PARAM_SPECS = [
     ParamSpec("monitor", "global", "Live monitor (hear effect)", "bool", 0, 1, 1, False),
     ParamSpec("ramp.duration_s", "global", "Ramp duration (s)", "float", 0.0, 86400.0, 1.0, IntensityRamp().duration_s),
 
+
+    # Random sound bursts
+    ParamSpec("random_burst.enabled", "random_burst", "Enable random voice bursts", "bool", 0, 1, 1, False),
+    ParamSpec("random_burst.interval_min_s", "random_burst", "Wait at least (s)", "float", 0.0, 100.0, 0.5, 10.0),
+    ParamSpec("random_burst.interval_max_s", "random_burst", "Wait at most (s)", "float", 0.0, 100.0, 0.5, 30.0),
+    ParamSpec("random_burst.duration_min_s", "random_burst", "Burst lasts at least (s)", "float", 0.1, 100.0, 0.1, 2.0),
+    ParamSpec("random_burst.duration_max_s", "random_burst", "Burst lasts at most (s)", "float", 0.1, 100.0, 0.1, 5.0),
+    ParamSpec("random_burst.use_animalese", "random_burst", "Use Animalese", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_minion", "random_burst", "Use Minion", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_scary", "random_burst", "Use Scary", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_goofy", "random_burst", "Use Goofy", "bool", 0, 1, 1, True),
+
     # -- plain mode (effect.py, flat pitch shift + optional EQ) ----------
     # Range spans negatives so the plain path can pitch *down* (deeper voice,
     # e.g. the "scary" preset) as well as up (chipmunk). Default stays positive.
@@ -343,6 +355,42 @@ def build_engine_registry(engine) -> Dict[str, ParamHandlers]:
         "ramp.duration_s": ParamHandlers(
             get=lambda: engine.ramp.duration_s,
             set=lambda v: engine.ramp.set_duration(float(v)),
+        ),
+        "random_burst.enabled": ParamHandlers(
+            get=lambda: engine.random_burst_enabled,
+            set=lambda v: engine.set_random_burst_enabled(bool(v)),
+        ),
+        "random_burst.interval_min_s": ParamHandlers(
+            get=lambda: engine.random_burst_interval_min_s,
+            set=lambda v: engine.set_random_burst_interval_min_s(float(v)),
+        ),
+        "random_burst.interval_max_s": ParamHandlers(
+            get=lambda: engine.random_burst_interval_max_s,
+            set=lambda v: engine.set_random_burst_interval_max_s(float(v)),
+        ),
+        "random_burst.duration_min_s": ParamHandlers(
+            get=lambda: engine.random_burst_duration_min_s,
+            set=lambda v: engine.set_random_burst_duration_min_s(float(v)),
+        ),
+        "random_burst.duration_max_s": ParamHandlers(
+            get=lambda: engine.random_burst_duration_max_s,
+            set=lambda v: engine.set_random_burst_duration_max_s(float(v)),
+        ),
+        "random_burst.use_animalese": ParamHandlers(
+            get=lambda: engine.random_burst_presets["animalese"],
+            set=lambda v: engine.set_random_burst_preset("animalese", bool(v)),
+        ),
+        "random_burst.use_minion": ParamHandlers(
+            get=lambda: engine.random_burst_presets["minion"],
+            set=lambda v: engine.set_random_burst_preset("minion", bool(v)),
+        ),
+        "random_burst.use_scary": ParamHandlers(
+            get=lambda: engine.random_burst_presets["scary"],
+            set=lambda v: engine.set_random_burst_preset("scary", bool(v)),
+        ),
+        "random_burst.use_goofy": ParamHandlers(
+            get=lambda: engine.random_burst_presets["goofy"],
+            set=lambda v: engine.set_random_burst_preset("goofy", bool(v)),
         ),
         "io.sample_rate": ParamHandlers(
             get=lambda: engine.sample_rate,

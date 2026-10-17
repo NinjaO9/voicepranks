@@ -53,6 +53,7 @@ def _log(message: str) -> None:
 
 GROUP_LABELS = {
     "global": "Global",
+    "random_burst": "Random voice bursts",
     "effect": "Plain mode (pitch + EQ)",
     "growl": "Growl (ring mod)",
     "distortion": "Distortion (gravel)",
@@ -64,7 +65,7 @@ GROUP_LABELS = {
     "io": "I/O (restarts audio)",
 }
 GROUP_ORDER = [
-    "global", "effect", "growl", "distortion", "reverb", "laugh",
+    "global", "random_burst", "effect", "growl", "distortion", "reverb", "laugh",
     "minionese", "shuffle", "pitch", "io",
 ]
 
@@ -221,25 +222,35 @@ class VoicePranksApp:
         # Pick which laugh the goofy preset punctuates speech with: a bundled
         # pre-recorded clip (goofy/scooby) or one you record yourself. "Play
         # Laugh" auditions the active clip on demand.
+        
         lframe = ttk.Frame(frame)
+
         lframe.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+
         ttk.Label(lframe, text="Laugh:").pack(side="left", padx=(0, 6))
+
         ttk.Button(lframe, text="Play Laugh", command=self._on_play_laugh).pack(
             side="left", padx=(0, 4)
         )
+
         ttk.Button(
             lframe, text="Goofy laugh", command=lambda: self._on_select_laugh("goofy")
         ).pack(side="left", padx=4)
+
         ttk.Button(
             lframe, text="Scooby laugh", command=lambda: self._on_select_laugh("scooby")
         ).pack(side="left", padx=4)
+
         self.laugh_record_button = ttk.Button(
             lframe, text="Record laugh", command=self._on_record_laugh
         )
+
         self.laugh_record_button.pack(side="left", padx=(12, 4))
+
         ttk.Button(lframe, text="Stop & use", command=self._on_record_laugh_stop).pack(
             side="left", padx=4
         )
+
         # Which clip is live, kept fresh by the status poll.
         self.laugh_source_label = ttk.Label(lframe, text="")
         self.laugh_source_label.pack(side="left", padx=(10, 0))
