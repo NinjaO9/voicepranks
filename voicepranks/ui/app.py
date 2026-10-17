@@ -30,6 +30,10 @@ from .jumpscare import FullscreenJumpscare
 STATUS_REFRESH_MS = 250
 SAVE_DEBOUNCE_MS = 400
 
+#Change frequency of random sound bounds
+RANDOM_SOUND_MIN_SECONDS = 2
+RANDOM_SOUND_MAX_SECONDS = 20
+
 # Params NOT persisted across sessions: on/off + live monitor are session
 # state, and io.* devices are stored separately (see settings.py). Note this
 # intentionally does NOT skip `intensity` -- unlike the preset exclusions in
@@ -113,6 +117,8 @@ class VoicePranksApp:
         self._save_after_id: Optional[str] = None
         self._last_jumpscare_fires = 0
         self._active_jumpscare: Optional[FullscreenJumpscare] = None
+        self._random_sound_after_id: Optional[str] = None
+        self._random_sound_enabled = False
 
         self.control_server: Optional[ControlServer] = None
         # `VOICEPRANKS_NO_SERVER` is the current name; `MINION_NO_SERVER` is the
@@ -240,7 +246,20 @@ class VoicePranksApp:
         ttk.Button(lframe, text="Play Laugh", command=self._on_play_laugh).pack(
             side="left", padx=(0, 4)
         )
-
+        ttk.Label(lframe, text="Random sounds:").pack(side="left", padx=(12, 4))
+        self.random_sound_interval = tk.IntVar(value=5)
+        ttk.Spinbox(
+            lframe,
+            from_=RANDOM_SOUND_MIN_SECONDS,
+            to=RANDOM_SOUND_MAX_SECONDS,
+            textvariable=self.random_sound_interval,
+            width=4,
+        ).pack(side="left")
+        ttk.Label(lframe, text="sec").pack(side="left", padx=(2, 4))
+        self.random_sound_button = ttk.Button(
+            lframe, text="Start random", command=self._on_random_sound_toggle
+        )
+        self.random_sound_button.pack(side="left", padx=4)
         ttk.Button(
             lframe, text="Goofy laugh", command=lambda: self._on_select_laugh("goofy")
         ).pack(side="left", padx=4)
@@ -821,6 +840,45 @@ class VoicePranksApp:
         except Exception as exc:
             self.error_message = f"Play laugh failed: {exc}"
 
+    def _random_sound_interval_ms(self) -> int:
+        try:
+            seconds = int(self.random_sound_interval.get())
+        except (tk.TclError, TypeError, ValueError):
+            seconds = RANDOM_SOUND_MIN_SECONDS
+        seconds = max(RANDOM_SOUND_MIN_SECONDS, min(RANDOM_SOUND_MAX_SECONDS, seconds))
+        self.random_sound_interval.set(seconds)
+        return seconds * 1000
+
+    def _schedule_random_sound(self) -> None:
+        if self._random_sound_enabled:
+            self._random_sound_after_id = self.root.after(
+                self._random_sound_interval_ms(), self._play_random_sound_once
+            )
+
+    def _on_random_sound_toggle(self) -> None:
+        self._random_sound_enabled = not self._random_sound_enabled
+        if not self._random_sound_enabled:
+            if self._random_sound_after_id is not None:
+                self.root.after_cancel(self._random_sound_after_id)
+                self._random_sound_after_id = None
+            self.random_sound_button.config(text="Start random")
+            return
+
+        self.random_sound_button.config(text="Stop random")
+        self._play_random_sound_once()
+
+    def _play_random_sound_once(self) -> None:
+        self._random_sound_after_id = None
+        if not self._random_sound_enabled:
+            return
+        try:
+            name = self.engine.play_random_sound_effect()
+            self.error_message = None
+        except Exception as exc:
+            self.error_message = f"Random sound failed: {exc}"
+        finally:
+            self._schedule_random_sound()
+
     def _on_monitor_toggle(self) -> None:
         self.engine.set_param("monitor", self.monitor_var.get())
 
@@ -950,6 +1008,10 @@ class VoicePranksApp:
             if self._save_after_id is not None:
                 self.root.after_cancel(self._save_after_id)
                 self._save_after_id = None
+            if self._random_sound_after_id is not None:
+                self.root.after_cancel(self._random_sound_after_id)
+                self._random_sound_after_id = None
+            self._random_sound_enabled = False
             self._save_settings()  # flush final state before exit
             if self.control_server is not None:
                 self.control_server.stop()

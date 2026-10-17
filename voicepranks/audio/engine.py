@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import random
 import threading
+import wave
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -12,6 +13,7 @@ from .. import params
 from .. import presets as presets_mod
 from ..dsp.effect import MinionEffect
 from ..dsp.ramp import IntensityRamp
+from ..resources import resource_path
 from . import wavio
 from .devices import find_virtual_output
 
@@ -894,6 +896,40 @@ class VoiceEngine:
         if self.running:
             self._queue_output_overlay(clip)
         self._play_to_headphones(clip)
+
+    def play_random_sound_effect(self) -> str:
+        """Play a random sound WAV file through the same outputs as Play Laugh.
+
+        Any WAV placed in ``voicepranks/assets`` can play. Can add any number of sounds.
+        """
+        paths = sorted(resource_path("assets").glob("*.wav"))
+        if not paths:
+            raise RuntimeError("no WAV sound effects found in voicepranks/assets")
+
+        path = random.choice(paths)
+        try:
+            source_rate, clip = wavio.read_wav(str(path))
+        except (OSError, ValueError, wave.Error) as exc:
+            raise RuntimeError(f"could not load sound effect '{path.name}': {exc}") from exc
+
+        clip = np.asarray(clip, dtype=np.float32)
+        if source_rate != self.sample_rate and clip.size > 1:
+            count = int(round(clip.size / source_rate * self.sample_rate))
+            if count > 1:
+                positions = np.linspace(0.0, clip.size - 1, count)
+                left = positions.astype(np.int64)
+                right = np.minimum(left + 1, clip.size - 1)
+                fraction = positions - left
+                clip = (
+                    clip[left] * (1.0 - fraction) + clip[right] * fraction
+                ).astype(np.float32)
+
+        if clip.size == 0:
+            raise RuntimeError(f"sound effect '{path.name}' is empty")
+        if self.running:
+            self._queue_output_overlay(clip) # Add to virtual cable output
+        self._play_to_headphones(clip)
+        return path.stem
 
     def poll_pending_laugh_echo(self) -> None:
         """Echo a just-fired automatic laugh to your headphones. Called from the
