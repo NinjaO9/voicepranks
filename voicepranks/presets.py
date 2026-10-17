@@ -39,6 +39,7 @@ _PLAIN_OFF = {
     "effect.nasality": 0.0,
     "growl.enabled": False,
     "distortion.enabled": False,
+    "deep_fry.enabled": False,
     "reverb.enabled": False,
     "laugh.enabled": False,
 }
@@ -133,6 +134,17 @@ PRESETS: Dict[str, Dict] = {
         "laugh.enabled": True,
         "laugh.gain": 1.0,
         "laugh.interval_s": 15.0,
+    },
+    
+    # I JUST WANT THE AIR FRYER BRO PLEASE
+    "deep_fried": {
+        **_PLAIN_OFF,
+        "gibberish": False,
+        "effect.max_semitones": 0.0,
+        "deep_fry.enabled": True,
+        "deep_fry.drive": 14.0,
+        "deep_fry.bit_depth": 5,
+        "deep_fry.downsample": 6,
     },
 }
 

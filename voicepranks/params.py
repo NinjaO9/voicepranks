@@ -60,6 +60,7 @@ PARAM_SPECS = [
     ParamSpec("random_burst.use_minion", "random_burst", "Use Minion", "bool", 0, 1, 1, True),
     ParamSpec("random_burst.use_scary", "random_burst", "Use Scary", "bool", 0, 1, 1, True),
     ParamSpec("random_burst.use_goofy", "random_burst", "Use Goofy", "bool", 0, 1, 1, True),
+    ParamSpec("random_brurst.use_deepfried", "random_burst", "Use DeepFried", "bool", 0, 1, 1, True),
 
     # -- plain mode (effect.py, flat pitch shift + optional EQ) ----------
     # Range spans negatives so the plain path can pitch *down* (deeper voice,
@@ -81,6 +82,12 @@ PARAM_SPECS = [
     # -- distortion (plain-path post-effect, off by default) --------------
     ParamSpec("distortion.enabled", "distortion", "Distortion enabled", "bool", 0, 1, 1, False),
     ParamSpec("distortion.drive", "distortion", "Drive (grit)", "float", 1.0, 25.0, 0.5, 1.0),
+
+    # -- deep fry (saturation + bit crushing + rate reduction) ------------
+    ParamSpec("deep_fry.enabled", "deep_fry", "Deep Fry enabled", "bool", 0, 1, 1, False),
+    ParamSpec("deep_fry.drive", "deep_fry", "Saturation", "float", 1.0, 30.0, 0.5, 1.0),
+    ParamSpec("deep_fry.bit_depth", "deep_fry", "Bit depth", "int", 2, 16, 1, 16),
+    ParamSpec("deep_fry.downsample", "deep_fry", "Rate reduction", "int", 1, 32, 1, 1),
 
     # -- reverb (plain-path post-effect, off by default) ------------------
     ParamSpec("reverb.enabled", "reverb", "Reverb enabled", "bool", 0, 1, 1, False),
@@ -203,6 +210,22 @@ def build_effect_registry(effect: MinionEffect) -> Dict[str, ParamHandlers]:
         "distortion.drive": ParamHandlers(
             get=lambda: effect.distortion_drive,
             set=lambda v: effect.set_distortion_drive(float(v)),
+        ),
+        "deep_fry.enabled": ParamHandlers(
+            get=lambda: effect.deep_fry_enabled,
+            set=lambda v: effect.set_deep_fry_enabled(bool(v)),
+        ),
+        "deep_fry.drive": ParamHandlers(
+            get=lambda: effect.deep_fry_drive,
+            set=lambda v: effect.set_deep_fry_drive(float(v)),
+        ),
+        "deep_fry.bit_depth": ParamHandlers(
+            get=lambda: effect.deep_fry_bit_depth,
+            set=lambda v: effect.set_deep_fry_bit_depth(int(v)),
+        ),
+        "deep_fry.downsample": ParamHandlers(
+            get=lambda: effect.deep_fry_downsample,
+            set=lambda v: effect.set_deep_fry_downsample(int(v)),
         ),
         "reverb.enabled": ParamHandlers(
             get=lambda: effect.reverb_enabled,

@@ -57,6 +57,7 @@ GROUP_LABELS = {
     "effect": "Plain mode (pitch + EQ)",
     "growl": "Growl (ring mod)",
     "distortion": "Distortion (gravel)",
+    "deep_fry": "Deep Fry (crunch + bit crush)",
     "reverb": "Reverb",
     "laugh": "Random laugh",
     "minionese": "Minionese — formant engine",
@@ -65,7 +66,7 @@ GROUP_LABELS = {
     "io": "I/O (restarts audio)",
 }
 GROUP_ORDER = [
-    "global", "random_burst", "effect", "growl", "distortion", "reverb", "laugh",
+    "global", "random_burst", "effect", "growl", "distortion", "deep_fry", "reverb", "laugh",
     "minionese", "shuffle", "pitch", "io",
 ]
 
