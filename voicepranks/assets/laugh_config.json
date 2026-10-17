@@ -1,5 +1,12 @@
 {
-    "Goofy Laugh": "goofy_laugh.wav",
-    "Scooby Laugh": "scooby_laugh.wav",
-    "Spooky Laugh": "spooky_laugh.wav"
+    "standard_laughs":
+    {
+        "Goofy Laugh": "goofy_laugh.wav",
+        "Scooby Laugh": "scooby_laugh.wav",
+        "Spooky Laugh": "spooky_laugh.wav"
+    },
+    "random_laughs":
+    {
+        
+    }
 }

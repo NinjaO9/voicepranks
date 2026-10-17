@@ -236,7 +236,7 @@ class VoicePranksApp:
         with open(presets_mod._LAUGH_CONFIG_PATH, "r") as laugh_config_file:
             laugh_config = json.load(laugh_config_file)
 
-        for laugh in laugh_config:
+        for laugh in laugh_config["standard_laughs"]:
             ttk.Button(
                 lframe, text=laugh, command=lambda laugh=laugh: self._on_select_laugh(laugh)
             ).pack(side="left", padx=4)

@@ -193,12 +193,12 @@ class GoofyLaugh:
         with open(presets._LAUGH_CONFIG_PATH, "r") as laugh_config_file:
             laugh_config = json.load(laugh_config_file)
 
-        if name not in laugh_config:
+        if name not in laugh_config["standard_laughs"]:
             raise ValueError(f"unknown laugh preset {name!r}")
         if name == self.active_laugh:
             return  # already live -- skip the redundant clip reload
 
-        sample = _load_sample(presets._ASSETS_DIR / laugh_config[name], self.sample_rate)
+        sample = _load_sample(presets._ASSETS_DIR / laugh_config["standard_laughs"][name], self.sample_rate)
         if (sample is None or sample.size == 0):
             raise ValueError(f"laugh preset {name!r} could not be loaded")
 
