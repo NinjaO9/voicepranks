@@ -68,6 +68,11 @@ Tick **Live monitor** to also hear it on your speakers while recording.
 **Re-render & Play** is a secondary A/B flow: it re-runs the *dry* mic through
 a fresh effect with whatever settings are currently dialed in.
 
+The **Random sounds** control plays one random audio file at the selected interval
+(between 2 and 20 seconds). Click **Start random** to enable it and **Stop random** to disable it. Each sound is played to your listening device and, when the engine is running,
+mixed into the virtual microphone output.
+To add more audio files, just add to assets folder.
+
 ### Audio devices (Settings…)
 
 Three devices, configured in the **Settings** dialog and saved to
