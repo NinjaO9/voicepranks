@@ -100,6 +100,10 @@ PARAM_SPECS = [
     ParamSpec("laugh.interval_s", "laugh", "Laugh every N seconds", "float", 1.0, 120.0, 1.0, 15.0),
     ParamSpec("laugh.gain", "laugh", "Laugh volume", "float", 0.0, 2.0, 0.05, 1.0),
 
+    # -- reaction sounds (brief loud outburst -> selected laugh clip) ------
+    ParamSpec("reaction.enabled", "reaction", "Reaction sounds enabled", "bool", 0, 1, 1, False),
+    ParamSpec("reaction.sensitivity", "reaction", "Reaction sensitivity", "float", 0.0, 1.0, 0.05, 0.5),
+
     # -- minionese (gibberish mode) ---------------------------------------
     ParamSpec("minionese.semitones", "minionese", "Semitones", "float", 0.0, 12.0, 0.1, minionese_mod.SEMITONES),
     ParamSpec("minionese.wobble_ms", "minionese", "Wobble depth (ms)", "float", 0.0, 12.0, 0.1, minionese_mod.VIB_MS),
@@ -254,6 +258,14 @@ def build_effect_registry(effect: MinionEffect) -> Dict[str, ParamHandlers]:
         "laugh.gain": ParamHandlers(
             get=lambda: effect.laugh.gain,
             set=lambda v: effect.set_laugh_gain(float(v)),
+        ),
+        "reaction.enabled": ParamHandlers(
+            get=lambda: effect.reaction_enabled,
+            set=lambda v: effect.set_reaction_enabled(bool(v)),
+        ),
+        "reaction.sensitivity": ParamHandlers(
+            get=lambda: effect.reaction.sensitivity,
+            set=lambda v: effect.set_reaction_sensitivity(float(v)),
         ),
         "minionese.semitones": ParamHandlers(
             get=lambda: m.semitones,

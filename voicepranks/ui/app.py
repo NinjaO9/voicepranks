@@ -60,13 +60,14 @@ GROUP_LABELS = {
     "deep_fry": "Deep Fry (crunch + bit crush)",
     "reverb": "Reverb",
     "laugh": "Random laugh",
+    "reaction": "Reaction sounds",
     "minionese": "Minionese — formant engine",
     "shuffle": "Minionese — shuffle engine",
     "pitch": "Pitch engine (advanced)",
     "io": "I/O (restarts audio)",
 }
 GROUP_ORDER = [
-    "global", "random_burst", "effect", "growl", "distortion", "deep_fry", "reverb", "laugh",
+    "global", "random_burst", "effect", "growl", "distortion", "deep_fry", "reverb", "laugh", "reaction",
     "minionese", "shuffle", "pitch", "io",
 ]
 
@@ -802,8 +803,9 @@ class VoicePranksApp:
         # thread -- and is best-effort so a playback hiccup never kills the loop.
         try:
             self.engine.poll_pending_laugh_echo()
+            self.engine.poll_pending_reaction_echo()
         except Exception as exc:
-            self.error_message = f"Laugh echo failed: {exc}"
+            self.error_message = f"Sound-effect echo failed: {exc}"
 
         status = self.engine.get_status()
         snapshot = self.engine.snapshot()
