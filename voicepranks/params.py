@@ -49,6 +49,19 @@ PARAM_SPECS = [
     ParamSpec("monitor", "global", "Live monitor (hear effect)", "bool", 0, 1, 1, False),
     ParamSpec("ramp.duration_s", "global", "Ramp duration (s)", "float", 0.0, 86400.0, 1.0, IntensityRamp().duration_s),
 
+
+    # Random sound bursts
+    ParamSpec("random_burst.enabled", "random_burst", "Enable random voice bursts", "bool", 0, 1, 1, False),
+    ParamSpec("random_burst.interval_min_s", "random_burst", "Wait at least (s)", "float", 0.0, 100.0, 0.5, 10.0),
+    ParamSpec("random_burst.interval_max_s", "random_burst", "Wait at most (s)", "float", 0.0, 100.0, 0.5, 30.0),
+    ParamSpec("random_burst.duration_min_s", "random_burst", "Burst lasts at least (s)", "float", 0.1, 100.0, 0.1, 2.0),
+    ParamSpec("random_burst.duration_max_s", "random_burst", "Burst lasts at most (s)", "float", 0.1, 100.0, 0.1, 5.0),
+    ParamSpec("random_burst.use_animalese", "random_burst", "Use Animalese", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_minion", "random_burst", "Use Minion", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_scary", "random_burst", "Use Scary", "bool", 0, 1, 1, True),
+    ParamSpec("random_burst.use_goofy", "random_burst", "Use Goofy", "bool", 0, 1, 1, True),
+    ParamSpec("random_brurst.use_deepfried", "random_burst", "Use DeepFried", "bool", 0, 1, 1, True),
+
     # -- plain mode (effect.py, flat pitch shift + optional EQ) ----------
     # Range spans negatives so the plain path can pitch *down* (deeper voice,
     # e.g. the "scary" preset) as well as up (chipmunk). Default stays positive.
@@ -70,6 +83,12 @@ PARAM_SPECS = [
     ParamSpec("distortion.enabled", "distortion", "Distortion enabled", "bool", 0, 1, 1, False),
     ParamSpec("distortion.drive", "distortion", "Drive (grit)", "float", 1.0, 25.0, 0.5, 1.0),
 
+    # -- deep fry (saturation + bit crushing + rate reduction) ------------
+    ParamSpec("deep_fry.enabled", "deep_fry", "Deep Fry enabled", "bool", 0, 1, 1, False),
+    ParamSpec("deep_fry.drive", "deep_fry", "Saturation", "float", 1.0, 30.0, 0.5, 1.0),
+    ParamSpec("deep_fry.bit_depth", "deep_fry", "Bit depth", "int", 2, 16, 1, 16),
+    ParamSpec("deep_fry.downsample", "deep_fry", "Rate reduction", "int", 1, 32, 1, 1),
+
     # -- reverb (plain-path post-effect, off by default) ------------------
     ParamSpec("reverb.enabled", "reverb", "Reverb enabled", "bool", 0, 1, 1, False),
     ParamSpec("reverb.mix", "reverb", "Wet/dry mix", "float", 0.0, 1.0, 0.05, 0.0),
@@ -80,6 +99,10 @@ PARAM_SPECS = [
     ParamSpec("laugh.enabled", "laugh", "Random laugh enabled", "bool", 0, 1, 1, False),
     ParamSpec("laugh.interval_s", "laugh", "Laugh every N seconds", "float", 1.0, 120.0, 1.0, 15.0),
     ParamSpec("laugh.gain", "laugh", "Laugh volume", "float", 0.0, 2.0, 0.05, 1.0),
+
+    # -- reaction sounds (brief loud outburst -> selected laugh clip) ------
+    ParamSpec("reaction.enabled", "reaction", "Reaction sounds enabled", "bool", 0, 1, 1, False),
+    ParamSpec("reaction.sensitivity", "reaction", "Reaction sensitivity", "float", 0.0, 1.0, 0.05, 0.5),
 
     # -- minionese (gibberish mode) ---------------------------------------
     ParamSpec("minionese.semitones", "minionese", "Semitones", "float", 0.0, 12.0, 0.1, minionese_mod.SEMITONES),
@@ -192,6 +215,22 @@ def build_effect_registry(effect: MinionEffect) -> Dict[str, ParamHandlers]:
             get=lambda: effect.distortion_drive,
             set=lambda v: effect.set_distortion_drive(float(v)),
         ),
+        "deep_fry.enabled": ParamHandlers(
+            get=lambda: effect.deep_fry_enabled,
+            set=lambda v: effect.set_deep_fry_enabled(bool(v)),
+        ),
+        "deep_fry.drive": ParamHandlers(
+            get=lambda: effect.deep_fry_drive,
+            set=lambda v: effect.set_deep_fry_drive(float(v)),
+        ),
+        "deep_fry.bit_depth": ParamHandlers(
+            get=lambda: effect.deep_fry_bit_depth,
+            set=lambda v: effect.set_deep_fry_bit_depth(int(v)),
+        ),
+        "deep_fry.downsample": ParamHandlers(
+            get=lambda: effect.deep_fry_downsample,
+            set=lambda v: effect.set_deep_fry_downsample(int(v)),
+        ),
         "reverb.enabled": ParamHandlers(
             get=lambda: effect.reverb_enabled,
             set=lambda v: effect.set_reverb_enabled(bool(v)),
@@ -219,6 +258,14 @@ def build_effect_registry(effect: MinionEffect) -> Dict[str, ParamHandlers]:
         "laugh.gain": ParamHandlers(
             get=lambda: effect.laugh.gain,
             set=lambda v: effect.set_laugh_gain(float(v)),
+        ),
+        "reaction.enabled": ParamHandlers(
+            get=lambda: effect.reaction_enabled,
+            set=lambda v: effect.set_reaction_enabled(bool(v)),
+        ),
+        "reaction.sensitivity": ParamHandlers(
+            get=lambda: effect.reaction.sensitivity,
+            set=lambda v: effect.set_reaction_sensitivity(float(v)),
         ),
         "minionese.semitones": ParamHandlers(
             get=lambda: m.semitones,
@@ -343,6 +390,42 @@ def build_engine_registry(engine) -> Dict[str, ParamHandlers]:
         "ramp.duration_s": ParamHandlers(
             get=lambda: engine.ramp.duration_s,
             set=lambda v: engine.ramp.set_duration(float(v)),
+        ),
+        "random_burst.enabled": ParamHandlers(
+            get=lambda: engine.random_burst_enabled,
+            set=lambda v: engine.set_random_burst_enabled(bool(v)),
+        ),
+        "random_burst.interval_min_s": ParamHandlers(
+            get=lambda: engine.random_burst_interval_min_s,
+            set=lambda v: engine.set_random_burst_interval_min_s(float(v)),
+        ),
+        "random_burst.interval_max_s": ParamHandlers(
+            get=lambda: engine.random_burst_interval_max_s,
+            set=lambda v: engine.set_random_burst_interval_max_s(float(v)),
+        ),
+        "random_burst.duration_min_s": ParamHandlers(
+            get=lambda: engine.random_burst_duration_min_s,
+            set=lambda v: engine.set_random_burst_duration_min_s(float(v)),
+        ),
+        "random_burst.duration_max_s": ParamHandlers(
+            get=lambda: engine.random_burst_duration_max_s,
+            set=lambda v: engine.set_random_burst_duration_max_s(float(v)),
+        ),
+        "random_burst.use_animalese": ParamHandlers(
+            get=lambda: engine.random_burst_presets["animalese"],
+            set=lambda v: engine.set_random_burst_preset("animalese", bool(v)),
+        ),
+        "random_burst.use_minion": ParamHandlers(
+            get=lambda: engine.random_burst_presets["minion"],
+            set=lambda v: engine.set_random_burst_preset("minion", bool(v)),
+        ),
+        "random_burst.use_scary": ParamHandlers(
+            get=lambda: engine.random_burst_presets["scary"],
+            set=lambda v: engine.set_random_burst_preset("scary", bool(v)),
+        ),
+        "random_burst.use_goofy": ParamHandlers(
+            get=lambda: engine.random_burst_presets["goofy"],
+            set=lambda v: engine.set_random_burst_preset("goofy", bool(v)),
         ),
         "io.sample_rate": ParamHandlers(
             get=lambda: engine.sample_rate,

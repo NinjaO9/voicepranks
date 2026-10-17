@@ -277,6 +277,15 @@ class GoofyLaugh:
         the same audio the automatic overlay would play, for on-demand playback."""
         return self._next_laugh()
 
+    @property
+    def loaded_clip(self) -> np.ndarray | None:
+        """Currently selected preloaded clip, without synthesizing on demand.
+
+        Real-time consumers use this rather than :meth:`laugh_clip`, whose
+        missing-asset fallback intentionally generates a fresh synthetic laugh.
+        """
+        return self._sample
+
     def _next_laugh(self) -> np.ndarray:
         """The waveform for one laugh: the real clip if bundled, else synth."""
         if self._sample is not None and self._sample.size > 0:
