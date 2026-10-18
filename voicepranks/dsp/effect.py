@@ -28,11 +28,12 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..resources import resource_path
 from .biquad import PeakingEQ
 from .deep_fry import DeepFry
 from .distortion import Distortion
 from .growl import Growl
-from .laugh import GoofyLaugh
+from .laugh import GoofyLaugh, _load_sample
 from .minionese import Minionese
 from .minionese_shuffle import MinioneseShuffle
 from .pitch import PitchShifter
@@ -100,6 +101,9 @@ class MinionEffect:
         self.reverb = Reverb(sample_rate)
         self.laugh = GoofyLaugh(sample_rate)
         self.reaction = ReactionSound(sample_rate)
+        # Reactions have their own bundled sound rather than following the
+        # currently selected laugh. Loaded once outside the real-time path.
+        self.reaction_sample = _load_sample(resource_path("assets", "fahh.wav"), sample_rate)
         self.growl_enabled = False
         self.distortion_enabled = False
         self.deep_fry_enabled = False
@@ -296,7 +300,7 @@ class MinionEffect:
         # reaction. The selected clip is already loaded; an absent asset simply
         # means the reaction does not fire rather than doing synthesis here.
         if self.reaction_enabled:
-            sample = self.laugh.loaded_clip
+            sample = self.reaction_sample
             if sample is not None:
                 self.reaction.observe(mono, sample)
         if self.gibberish:

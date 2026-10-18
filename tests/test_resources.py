@@ -55,3 +55,8 @@ def test_default_jumpscare_assets_exist_and_are_bundled():
     assert sound.exists()
     assert visual.name in spec_text
     assert "voicepranks/assets/*.wav" in spec_text
+
+
+def test_reaction_fahh_asset_exists_and_is_covered_by_the_wav_bundle():
+    assert resource_path("assets", "fahh.wav").exists()
+    assert "voicepranks/assets/*.wav" in _SPEC.read_text()

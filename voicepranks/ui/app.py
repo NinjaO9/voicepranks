@@ -116,7 +116,7 @@ class VoicePranksApp:
         self._suppress_commands = False
         self._save_after_id: Optional[str] = None
         self._last_jumpscare_fires = 0
-        self._active_jumpscare: Optional[FullscreenJumpscare] = None
+        self._active_jumpscares: List[FullscreenJumpscare] = []
         self._random_sound_after_id: Optional[str] = None
         self._random_sound_enabled = False
 
@@ -899,8 +899,9 @@ class VoicePranksApp:
 
     # -- status polling ------------------------------------------------
 
-    def _dismiss_jumpscare(self) -> None:
-        self._active_jumpscare = None
+    def _dismiss_jumpscare(self, scare: FullscreenJumpscare) -> None:
+        if scare in self._active_jumpscares:
+            self._active_jumpscares.remove(scare)
 
     def _show_pending_jumpscare(self, fire_count: int) -> None:
         """Present one scheduled scare from the Tk thread, never the callback."""
@@ -915,16 +916,20 @@ class VoicePranksApp:
         try:
             validate_visual(visual_asset_path)
             sample_rate, clip = validate_sound(sound_asset_path)
-            if self._active_jumpscare is not None:
-                self._active_jumpscare.dismiss()
+            scare: Optional[FullscreenJumpscare] = None
+
+            def on_dismiss() -> None:
+                if scare is not None:
+                    self._dismiss_jumpscare(scare)
+
             scare = FullscreenJumpscare(
                 self.root,
                 visual_asset_path,
                 len(clip) / sample_rate,
-                self._dismiss_jumpscare,
+                on_dismiss,
                 on_present=lambda: self.engine.play_local_clip(clip, sample_rate),
             )
-            self._active_jumpscare = scare
+            self._active_jumpscares.append(scare)
             scare.show()
             self.error_message = None
         except Exception as exc:
@@ -1006,8 +1011,8 @@ class VoicePranksApp:
 
     def _on_close(self) -> None:
         try:
-            if self._active_jumpscare is not None:
-                self._active_jumpscare.dismiss()
+            for scare in list(self._active_jumpscares):
+                scare.dismiss()
             if self._save_after_id is not None:
                 self.root.after_cancel(self._save_after_id)
                 self._save_after_id = None
@@ -1015,6 +1020,7 @@ class VoicePranksApp:
                 self.root.after_cancel(self._random_sound_after_id)
                 self._random_sound_after_id = None
             self._random_sound_enabled = False
+            self.engine.stop_local_playback()
             self._save_settings()  # flush final state before exit
             if self.control_server is not None:
                 self.control_server.stop()

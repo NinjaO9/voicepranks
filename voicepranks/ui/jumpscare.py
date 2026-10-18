@@ -26,7 +26,7 @@ class FullscreenJumpscare:
         self._frame_delays = []
         self._frame_index = 0
         self._frame_after: Optional[str] = None
-        self._close_after: Optional[str] = None
+        self._static_after: Optional[str] = None
 
     def show(self) -> None:
         width, height = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
@@ -51,7 +51,10 @@ class FullscreenJumpscare:
         self._label = label
         if len(self._frames) > 1:
             self._schedule_frame()
-        self._close_after = win.after(max(1, int(self.duration_s * 1000)), self.dismiss)
+        else:
+            # A static PNG has no animation pass to complete; retain the
+            # previous duration-based behavior for that user-provided format.
+            self._static_after = win.after(max(1, int(self.duration_s * 1000)), self.dismiss)
 
     @staticmethod
     def _fit_size(source_width: int, source_height: int, max_width: int, max_height: int):
@@ -87,6 +90,9 @@ class FullscreenJumpscare:
     def _advance_frame(self) -> None:
         if self.window is None:
             return
+        if self._frame_index >= len(self._frames) - 1:
+            self.dismiss()
+            return
         self._frame_index = (self._frame_index + 1) % len(self._frames)
         self._label.configure(image=self._frames[self._frame_index])
         self._schedule_frame()
@@ -95,13 +101,13 @@ class FullscreenJumpscare:
         win, self.window = self.window, None
         if win is None:
             return
-        for after_id in (self._frame_after, self._close_after):
+        for after_id in (self._frame_after, self._static_after):
             if after_id is not None:
                 try:
                     win.after_cancel(after_id)
                 except tk.TclError:
                     pass
-        self._frame_after = self._close_after = None
+        self._frame_after = self._static_after = None
         try:
             win.destroy()
         finally:
