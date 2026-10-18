@@ -73,6 +73,20 @@ The **Random sounds** control plays one random audio file at the selected interv
 mixed into the virtual microphone output.
 To add more audio files, just add to assets folder.
 
+### Fullscreen jumpscare
+
+The **Fullscreen jumpscare** parameter section is off by default. It uses the
+bundled Foxy GIF and FNAF jumpscare WAV, while the Jumpscare asset buttons let
+you replace either with your own PNG/GIF or 16-bit PCM WAV. The visual expands
+uniformly to the largest size that fits the primary display, preserving its
+aspect ratio. The sound plays only through the selected playback device, never
+through the virtual microphone or into recordings. Escape dismisses the scare.
+Each elapsed second also has a 1-in-100 chance to trigger the scare early; any
+early trigger resets the configured maximum interval, which still forces a
+scare if no roll succeeds in time. Each GIF plays once and then disappears,
+while its audio continues independently. Consecutive scares stack their visual
+windows and mix their local audio instead of cutting off an earlier sound.
+
 ### Audio devices (Settings…)
 
 Three devices, configured in the **Settings** dialog and saved to

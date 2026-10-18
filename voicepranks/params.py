@@ -49,6 +49,11 @@ PARAM_SPECS = [
     ParamSpec("monitor", "global", "Live monitor (hear effect)", "bool", 0, 1, 1, False),
     ParamSpec("ramp.duration_s", "global", "Ramp duration (s)", "float", 0.0, 86400.0, 1.0, IntensityRamp().duration_s),
 
+    # Desktop-only visual/audio scare. The timer is owned by the engine so
+    # the localhost API can configure it too; only the Tk app presents it.
+    ParamSpec("jumpscare.enabled", "jumpscare", "Enable fullscreen jumpscare", "bool", 0, 1, 1, False),
+    ParamSpec("jumpscare.interval_s", "jumpscare", "Jumpscare every N seconds", "float", 1.0, 100.0, 1.0, 60.0),
+
 
     # Random sound bursts
     ParamSpec("random_burst.enabled", "random_burst", "Enable random voice bursts", "bool", 0, 1, 1, False),
@@ -390,6 +395,14 @@ def build_engine_registry(engine) -> Dict[str, ParamHandlers]:
         "ramp.duration_s": ParamHandlers(
             get=lambda: engine.ramp.duration_s,
             set=lambda v: engine.ramp.set_duration(float(v)),
+        ),
+        "jumpscare.enabled": ParamHandlers(
+            get=lambda: engine.jumpscare_enabled,
+            set=lambda v: engine.set_jumpscare_enabled(bool(v)),
+        ),
+        "jumpscare.interval_s": ParamHandlers(
+            get=lambda: engine.jumpscare_interval_s,
+            set=lambda v: engine.set_jumpscare_interval_s(float(v)),
         ),
         "random_burst.enabled": ParamHandlers(
             get=lambda: engine.random_burst_enabled,

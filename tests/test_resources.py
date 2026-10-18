@@ -45,3 +45,18 @@ def test_every_preset_laugh_is_bundled_in_spec():
             f"{name} laugh ({path.name}) is not bundled in voicepranks.spec -- "
             f"its picker button won't work in a packaged build"
         )
+
+
+def test_default_jumpscare_assets_exist_and_are_bundled():
+    visual = resource_path("assets", "fnaf-foxy-jumpscare.gif")
+    sound = resource_path("assets", "Fnaf_Jumpscare_Sound_Effect.wav")
+    spec_text = _SPEC.read_text()
+    assert visual.exists()
+    assert sound.exists()
+    assert visual.name in spec_text
+    assert "voicepranks/assets/*.wav" in spec_text
+
+
+def test_reaction_fahh_asset_exists_and_is_covered_by_the_wav_bundle():
+    assert resource_path("assets", "fahh.wav").exists()
+    assert "voicepranks/assets/*.wav" in _SPEC.read_text()
